@@ -4,8 +4,7 @@ from discord.ext import commands, tasks
 # from discord import app_commands
 import sqlite3
 import json
-pycord=discord
-from config import openai_token, bot_token
+from config import bot_token, openai_token
 intents = discord.Intents.all()
 
 # Create the client
@@ -619,28 +618,25 @@ async def avatar(ctx, user: typing.Optional[discord.Member]):
     embed = discord.Embed(title=user.name + '\'s avatar')
     embed.set_image(url=user.avatar.url)
     await ctx.respond(embed=embed)
-# Mute command
-@client.command(name='mute')
-@commands.has_permissions(manage_roles=True)
-async def mute(ctx, member: pycord.Member, *, reason=None):
-    guild = ctx.guild
-    muted_role = discord.utils.get(guild.roles, name="Muted")
-    if not muted_role:
-        muted_role = await guild.create_role(name="Muted")
 
-    for channel in guild.channels:
-        await channel.set_permissions(muted_role, speak=False, send_messages=False)
+# Unban command
+@client.command(name='unban')
+@commands.has_permissions(ban_members=True)
+async def unban(ctx, member:discord.Member):
+    """Unbans a user. e.g. /unban [member]"""
+    banned_users = await ctx.guild.bans()
+    member_name, member_discriminator = member.split('#')
 
-    await member.add_roles(muted_role, reason=reason)
-    await ctx.respond(f"{member.name} has been muted!")
+    for ban_entry in banned_users:
+        user = ban_entry.user
 
-# Unmute command
-@client.command(name='unmute')
-@commands.has_permissions(manage_roles=True)
-async def unmute(ctx, member: pycord.Member):
-    muted_role = discord.utils.get(ctx.guild.roles, name="Muted")
-    await member.remove_roles(muted_role)
-    await ctx.respond(f"{member.name} has been unmuted!")
+        if (user.name, user.discriminator) == (member_name, member_discriminator):
+            await ctx.guild.unban(user)
+            await ctx.respond(f'{user.name} has been unbanned!')
+            return
+
+import aiohttp
+from bs4 import BeautifulSoup
 
 # Urban Dictionary command
 @client.command(name='ud')
@@ -653,6 +649,7 @@ async def ud(ctx, *, term):
             meaning = soup.find('div', {'class': 'meaning'}).text
             example = soup.find('div', {'class': 'example'}).text
             await ctx.respond(f"**{term.capitalize()}**: {meaning}\n\n*Example: {example}*")
+
 
 # Run the bot
 bot.run(bot_token)

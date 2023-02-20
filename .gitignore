@@ -1,6 +1,8 @@
+user_prompts.json
 __pycache__
 node_modules
 package-lock.json
 package.json
 discord.log
 config.py
+users.json
