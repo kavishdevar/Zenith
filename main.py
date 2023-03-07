@@ -23,16 +23,16 @@ logger.addHandler(handler)
 # Basic on_ready event
 @bot.event
 async def on_ready():
-    await bot.sync_commands(guild_ids=[1071784179748048956])
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="https://bit.ly/InviteZenith"))
+    await bot.sync_commands()
+    # await bot.sync_commands(guild_ids=[1071784179748048956])
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="your commands (and pretending to care 😏)."))
     print('Bot is ready')
 
 # Basic ping command
-@bot.command(name="ping")
+@bot.slash_command(name="ping")
 async def ping(ctx):
     """
-    Pings the bot.
-    Usage: /ping
+    Pings the bot. Usage: /ping
     """
     await ctx.respond(f"Pong! Latency is {bot.latency}",ephemeral=True)
 
@@ -54,12 +54,14 @@ def calculate_rank(level):
     else:
         return "none"
 
+import json
+
 
 @bot.event
 async def on_message(message):
     if not message.author.bot:
-        with open("users.json", "r") as f:
-            users = json.load(f)
+        with open("users.json", "r") as fi:
+            users = json.load(fi)
         # Add user to dictionary if they're not already in it
         if str(message.author.id) not in users:
             users[str(message.author.id)] = {
@@ -93,12 +95,12 @@ async def on_message(message):
             json.dump(users, f)
 
 import typing
-@bot.command(name='level')
+@bot.slash_command(name='level')
 async def level(ctx,username: typing.Optional[discord.Member]):
     """
-    Check anyone's level in the server.
-    Usage: /level [user]. If no username supplied, displays your level.
+    Check anyone's level in the server. Usage: /level [user], Displays your level if user=None.
     """
+    await ctx.response.defer()
     with open("users.json", "r") as f:
         users = json.load(f)
     user = username or ctx.author
@@ -108,12 +110,12 @@ async def level(ctx,username: typing.Optional[discord.Member]):
     else:
         await ctx.respond(f"{user.mention}, you haven't sent any messages yet.",ephemeral=True)
 
-@bot.command(name='brag')
+@bot.slash_command(name='brag')
 async def brag(ctx):
     """
-    Brag your level
-    Usage: /brag
+    Brag your level. Usage: /brag
     """
+    await ctx.response.defer()
     with open("users.json", "r") as f:
         users = json.load(f)
     user = ctx.author
@@ -121,14 +123,15 @@ async def brag(ctx):
         level = users[str(user.id)]["level"]
         await ctx.respond(f"@here!! {user.mention} is level {level}!!")
     else:
-        await ctx.respond(f"POG! :Pog_Chomp: {user.mention}, you haven't sent any messages yet.")
+        await ctx.respond(f"<:PogChomp:1072477340011088544> {user.mentions}, You haven't sent any mesaages in this server yet")
 
-@bot.command(name='leaderboard')
+
+@bot.slash_command(name='leaderboard')
 async def leaderboard(ctx):
     """
-    Check the Top Messegers on the Server.
-    Usage: /leaderboard
+    Check the Top Messegers on the Server. Usage: /leaderboard
     """
+    await ctx.response.defer()
     with open("users.json", "r") as f:
         users = json.load(f)
     leaderboard = sorted(users.items(), key=lambda x: x[1]["level"], reverse=True)
@@ -139,18 +142,18 @@ async def leaderboard(ctx):
         level = user_data["level"]
         leaderboard_str += f"{i+1}. {user.name}#{user.discriminator} - Level {level}\n"
     leaderboard_str += "```"
-    await ctx.respond(leaderboard_str)
+    await ctx.followup.send(leaderboard_str)
 
 
 # Moderation commands
 
-@bot.command(name='ban')
+@bot.slash_command(name='ban')
 @commands.has_permissions(ban_members=True)
 async def ban(ctx, member: discord.Member, *, reason:str):
     """
-    Bans a member from the server.
-    Usage: /ban [member]
+    Bans a member from the server. Usage: /ban [member]
     """
+    await ctx.response.defer()
     if member == ctx.message.author:
         await ctx.respond("You cannot ban yourself.")
         return
@@ -169,13 +172,13 @@ async def ban(ctx, member: discord.Member, *, reason:str):
         embed.add_field(name="Reason", value=reason)
         await log_channel.send(embed=embed)
 
-@bot.command(name='kick')
+@bot.slash_command(name='kick')
 @commands.has_permissions(kick_members=True)
 async def kick(ctx, member: discord.Member, *, reason:str):
     """
-    Kicks a member from the server.
-    Usage: /kick [member]
+    Kicks a member from the server. Usage: /kick [member]
     """
+    await ctx.response.defer()
     if member == ctx.message.author:
         await ctx.respond("You cannot kick yourself.")
         return
@@ -193,13 +196,13 @@ async def kick(ctx, member: discord.Member, *, reason:str):
         embed.add_field(name="Reason", value=reason)
         await log_channel.send(embed=embed)
 
-@bot.command(name='purge')
+@bot.slash_command(name='purge')
 @commands.has_permissions(manage_messages=True)
 async def purge(ctx, number: int):
     """
-    Purges messages in the current channel.
-    Usage: /purge [number]
+    Purges messages in the current channel.Usage: /purge [number]
     """
+    await ctx.response.defer()
     await ctx.channel.purge(limit=number)
     await ctx.respond(f"{number} messages have been cleared.",ephemeral=True)
     log_channel = discord.utils.get(ctx.guild.channels, name="logs")
@@ -209,13 +212,13 @@ async def purge(ctx, number: int):
         embed.add_field(name="Amount", value=number)
         await log_channel.send(embed=embed)
 
-@bot.command(name='addrole')
+@bot.slash_command(name='addrole')
 @commands.has_permissions(manage_roles=True)
 async def addrole(ctx, member: discord.Member, *, role: discord.Role):
     """
-    Adds a role from a member.
-    Usage: /addrole [member] [role]
+    Adds a role from a member. Usage: /addrole [member] [role]
     """
+    await ctx.response.defer()
     await member.add_roles(role)
     await ctx.respond(f"{role} has been added to {member.mention}.",ephemeral=True)
     log_channel = discord.utils.get(ctx.guild.channels, name="logs")
@@ -226,13 +229,13 @@ async def addrole(ctx, member: discord.Member, *, role: discord.Role):
         embed.add_field(name="Moderator", value=f"{ctx.author.mention} ({ctx.author})")
         await log_channel.send(embed=embed)
 
-@bot.command(name='removerole')
+@bot.slash_command(name='removerole')
 @commands.has_permissions(manage_roles=True)
 async def removerole(ctx, member: discord.Member, *, role: discord.Role):
     """
-    Removes a role from a member.
-    Usage: /removerole [member] [role]
+    Removes a role from a member. Usage: /removerole [member] [role]
     """
+    await ctx.response.defer()
     try:
         await member.remove_roles(role)
         await ctx.respond(f"{role.name} has been removed from {member.mention}.",ephemeral=True)
@@ -241,10 +244,11 @@ async def removerole(ctx, member: discord.Member, *, role: discord.Role):
     except discord.HTTPException:
         await ctx.respond("An error occurred while attempting to remove the role.",ephemeral=True)
 
-@bot.command(name='embed')
+@bot.slash_command(name='embed')
 @commands.has_role('Helper')
 async def embed(ctx, channel: discord.TextChannel, title: str, author: str, author_dp: typing.Optional[str]=None, text: typing.Optional[str]=None, img_url: typing.Optional[str]=None, thumbnail: typing.Optional[str]=None, ftext:str="Thank You!", ficon:typing.Optional[str]=None):
     """Create an embed message"""
+    await ctx.response.defer()
     commandcompleteembed = discord.Embed(
         title="Completed",
         description="Your command has been executed. The embed has been created and sent!",
@@ -271,12 +275,12 @@ async def embed(ctx, channel: discord.TextChannel, title: str, author: str, auth
     await channel.send(embed=embed)
 
 # Apply for role command
-@bot.command(name='apply-for-role')
+@bot.slash_command(name='apply-for-role')
 async def apply_for_role(ctx, *, option_role: discord.Role):
     """
-    Apply for roles. Request the admins/moderators to give you a role.
-    Usage: /apply-for-role [role]
+    Apply for roles. Request the admins/moderators to give you a role. Usage: /apply-for-role [role]
     """
+    await ctx.response.defer()
     if ctx.channel.name != 'ask-for-roles':
         await ctx.respond('This command can only be run in the \#ask-for-roles channel.',ephemeral=True)
         return
@@ -300,31 +304,13 @@ async def apply_for_role(ctx, *, option_role: discord.Role):
         msg = f'Hey! {ctx.author.mention} has requested you to give them the {option_role} role.\n\nThank You!'
         await channel.send(msg)
 
-@bot.command(name="warn")
-@commands.has_role("Moderator")
-async def warn(ctx, member: discord.Member, reason: str):
-    """
-    Warns a member for a specific reason.
-    Usage: /warn [Member] [Reason]
-    """
-    embed = discord.Embed(title="⚠️Warning!⚠️", description=f"You have been warned for {reason}. Please follow the rules.", color=discord.Color.red())
-    embed.set_author(name=f"{ctx.author}")
-    embed.set_footer(text="Thank you for being a part of the Delhi Public School Server.",ephemeral=True)
-    try:
-        await member.send(embed=embed)
-    except discord.Forbidden:
-        ctx.respond("Failed to send a warning message. The user may have their DMs disabled.",ephemeral=True)
-    alert_message = f"⚠️ **{member.display_name}** has been warned by a staff member. Reason: {reason}."
-    await discord.utils.get(name='alerts').send(content=alert_message)
-    ctx.respond("Member Warned!")
-
-@bot.command(name="msg")
+@bot.slash_command(name="dm")
 @commands.has_role("Admin")
 async def msg(ctx, member: discord.Member, message: str):
     """
-    Message a member as the bot.
-    Usage: /warn [Member] [Message]
+    Message a member as the bot. Usage: /warn [Member] [Message]
     """
+    await ctx.response.defer()
     try:
         await ctx.respond("DM'd Member!",ephemeral=True)
         await member.send(content=message)
@@ -333,12 +319,12 @@ async def msg(ctx, member: discord.Member, message: str):
 
 import asyncio, random
 
-@bot.command(name="role_giveaway")
+@bot.slash_command(name="role_giveaway")
 async def role_giveaway(ctx, time: int, *, role: discord.Role):
     """
-    Starts a giveaway for a role for a specified time.
-    Usage: /role_giveaway [Time in seconds] [role]
+    Starts a giveaway for a role for a specified time. Usage: /role_giveaway [Time in seconds] [role]
     """
+    await ctx.response.defer()
     channel = bot.get_channel(1074973882211123221)  # Replace with the actual ID of the #giveaways channel
 
     embedResponse = discord.Embed(title="Done!", description=f"Embed for the giveaway for **{role.name}** has been sent!", color=0xffd700)
@@ -369,7 +355,7 @@ async def role_giveaway(ctx, time: int, *, role: discord.Role):
     # Adds a reaction to the giveaway message
     await message.add_reaction('🎉')
 
- # Update the remaining time every 10 seconds
+    # Update the remaining time every 10 seconds
     for remaining_time in range(time, -1, -10):
         embed.set_field_at(index=0, name="Time remaining", value=f"{remaining_time} seconds")
         await message.edit(embed=embed)
@@ -392,12 +378,12 @@ async def role_giveaway(ctx, time: int, *, role: discord.Role):
         embed.set_footer(text="Congratulations!")
         await message.edit(embed=embed)
         
-@bot.command(name="giveaway")
+@bot.slash_command(name="giveaway")
 async def giveaway(ctx, time: int, *, prize: str):
     """
-    Starts a giveaway with a specified time and prize.
-    Usage: /giveaway [Time in seconds] [Prize]
+    Starts a giveaway with a specified time and prize. Usage: /giveaway [Time in seconds] [Prize]
     """
+    await ctx.response.defer()
     channel = bot.get_channel(1074973882211123221)
     
     embedResponse = discord.Embed(title="Done!", description=f"Embed for the giveaway for **{prize}** has been sent!", color=0xffd700)
@@ -472,10 +458,11 @@ def save_user_prompts(user_prompts):
 
 user_prompts = load_user_prompts()
 
-@bot.command(name="ask-gpt")
+@bot.slash_command(name="ask-gpt")
 async def ask_gpt(ctx, prompt:str):
+    """Use the GPT3 AI Model. e.g. /ask-gpt [prompt]"""
+    await ctx.response.defer()
     user_id = str(ctx.author.id)
-    
     if user_id in user_prompts:
         num_prompts = user_prompts[user_id]["num_prompts"]
         last_prompt_time = datetime.fromisoformat(user_prompts[user_id]["last_prompt_time"])
@@ -502,32 +489,34 @@ async def ask_gpt(ctx, prompt:str):
     
     await ctx.send("**\\> {}**\n```{}```".format(prompt, response.choices[0].text))
 
-emojis=["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
-@bot.command(name="poll")
-async def poll(ctx, title, option1, option2, option3='', option4='', option5='', option6='', option7='', option8=''):
-    """
-    Create a Poll. e.g. - /poll [title] [option1] [option2]...
-    """
-    options = [option1,option2,option3,option4,option5,option6,option7,option8]
-    message = ""
-    await ctx.respond("Done!",ephemeral=True)
+@bot.slash_command(name="poll")
+async def poll(ctx, title, option1, option2, option3:typing.Optional[str], option4:typing.Optional[str], option5:typing.Optional[str], option6:typing.Optional[str], option7:typing.Optional[str], option8:typing.Optional[str]):
+    """Create a poll. e.g. /poll title option1 option2 option3 ..."""
+    await ctx.response.defer()
+    options = [option1, option2,option3,option4,option5,option6,option7,option8]
+    reactions = ["\U0001f1e6", "\U0001f1e7", "\U0001f1e8", "\U0001f1e9", "\U0001f1ea", "\U0001f1eb", "\U0001f1ec", "\U0001f1ed"][:len(options)]
+    embed = discord.Embed(title=title, color=discord.Color.blue())
     for i in range(len(options)):
-        while options[i] != '':
-            message += emojis[i] + ". " + options[i] + "\n"
-    embed = discord.Embed(title=title, description=message, color=0x00ff00)
-    embed.set_author(name=ctx.author.nick, icon_url=ctx.author.avatar.url)
+        if options[i] == None:
+           break
+        embed.add_field(name=f"{reactions[i]} {options[i]}", value="\u200b", inline=False)
     message = await ctx.send(embed=embed)
-    for i in range(0, len(options)):
-        await message.add_reaction(emojis[i])
+    for i in reactions:
+        if options[reactions.index(i)] == None:
+           break
+        await message.add_reaction(i)
+    await ctx.respond("Done",ephemeral=True)
+
 tick="✅"
 # tick="✔️"
 cross="❌"
-@bot.command(name="yes-no-poll")
-async def yes_no_poll(ctx, title, description=0):
+@bot.slash_command(name="yes-no-poll")
+async def yes_no_poll(ctx, title, description=''):
     """
     Create a Yes/No Poll. e.g. - /poll [title] [description]
     """
-    await ctx.respond("Done!",ephemeral=True)
+    await ctx.response.defer()
+    
     if description == '':
         embed = discord.Embed(title=title, description=description, color=0x00ff00)
     else:
@@ -537,6 +526,7 @@ async def yes_no_poll(ctx, title, description=0):
 
     await message.add_reaction(tick)
     await message.add_reaction(cross)
+    await ctx.respond("Done!", ephemeral=True)
 
 client=bot
 
@@ -544,31 +534,31 @@ client=bot
 @client.command(name='coinflip')
 async def coinflip(ctx):
     """Flip a coin. e.g. /coinflip"""
+    await ctx.response.defer()
     outcomes = ['Heads', 'Tails']
     response = 'The coin landed on ' + random.choice(outcomes) + '!'
     await ctx.respond(response)
+
 from thefuzz import fuzz 
+
 # Eight ball command
 @client.command(name='8ball')
 async def eight_ball(ctx, question):
     """Ask a question. e.g. /8ball [question]"""
-    if not question:
-        await ctx.respond('Please ask a question!')
-        return
-
+    await ctx.response.defer()
     responses = ['It is certain.', 'It is decidedly so.', 'Without a doubt.', 'Yes – definitely.', 'You may rely on it.', 'As I see it, yes.', 'Most likely.', 'Outlook good.', 'Yes.', 'Signs point to yes.', 'Reply hazy, try again.', 'Ask again later.', 'Better not tell you now.', 'Cannot predict now.', 'Concentrate and ask again.', 'Don\'t count on it.', 'Outlook not so good.', 'My sources say no.', 'Very doubtful.']
     response = random.choice(responses)
-    if fuzz.token_set_ratio(question,"are you smart?")>50:
+    if fuzz.token_set_ratio(question,"are you smart?")>70:
         await ctx.respond("Yes!")
         return
-    if fuzz.token_set_ratio(question,"are you dumb?")>50:
+    if fuzz.token_set_ratio(question,"are you dumb?")>70:
         await ctx.respond("No!")
         return
-    if fuzz.token_set_ratio(question,"am i smart?")>50:
-        await ctx.respond("Yes!")
+    if fuzz.token_set_ratio(question,"am i smart?")>70:
+        await ctx.respond("Yes! Well maybe not, idk, I'm just a Bot.")
         return
-    if fuzz.token_set_ratio(question,"am i dumb?")>50:
-        await ctx.respond("No!")
+    if fuzz.token_set_ratio(question,"am i dumb?")>70:
+        await ctx.respond("No! Well maybe, idk, I'm just a Bot.")
         return
     ctx.respond(response)
     
@@ -577,7 +567,7 @@ async def eight_ball(ctx, question):
 @client.command(name='roleinfo')
 async def roleinfo(ctx, role: discord.Role):
     """Show information about a role. e.g. /roleinfo [role]"""
-
+    await ctx.response.defer()
     embed = discord.Embed(title=role.name)
     embed.add_field(name='ID', value=role.id)
     embed.add_field(name='Created At', value=role.created_at.strftime('%m/%d/%Y'))
@@ -591,29 +581,39 @@ async def roleinfo(ctx, role: discord.Role):
 @client.command(name='random')
 async def random_number(ctx, min_num=0, max_num=100):
     """Give a random number e.g. /random [min,def=0] [max,def=100]"""
+    await ctx.response.defer()
     num = random.randint(int(min_num), int(max_num))
     await ctx.respond(num)
 
-# Server info command
-@client.command(name='serverinfo')
+# Serverinfo command
+@bot.slash_command(name='serverinfo', description='Displays information about the server')
 async def serverinfo(ctx):
-    """View info about this server. e.g. /serverinfo"""
     server = ctx.guild
-    embed = discord.Embed(title=server.name)
-    embed.add_field(name='ID', value=server.id)
-    embed.add_field(name='Owner', value=server.owner.mention)
-    # embed.add_field(name='Region', value=str(server.region).title())
-    embed.add_field(name='Created At', value=ctx.guild.created_at.strftime('%m/%d/%Y'))
-    embed.add_field(name='Members', value=server.member_count)
-    embed.add_field(name='Roles', value=len(server.roles))
-    embed.add_field(name='Channels', value=len(server.channels))
-    embed.set_thumbnail(url=server.icon.url)
+    roles = len(server.roles)
+    emojis = len(server.emojis)
+    channels = len(server.channels)
+    members = server.member_count
+    created_at = server.created_at.strftime('%Y-%m-%d %H:%M:%S')
+    region = str(server.region).capitalize()
+    text_channels = len(server.text_channels)
+    voice_channels = len(server.voice_channels)
+    embed = discord.Embed(title=server.name, description=server.id, color=0x00ff00)
+    embed.add_field(name="Owner", value=server.owner, inline=False)
+    embed.add_field(name="Region", value=region, inline=False)
+    embed.add_field(name="Members", value=members, inline=False)
+    embed.add_field(name="Created At", value=created_at, inline=False)
+    embed.add_field(name="Channels", value=channels, inline=False)
+    embed.add_field(name="Text Channels", value=text_channels, inline=True)
+    embed.add_field(name="Voice Channels", value=voice_channels, inline=True)
+    embed.add_field(name="Roles", value=roles, inline=False)
+    embed.add_field(name="Emojis", value=emojis, inline=False)
     await ctx.respond(embed=embed)
 
 # Avatar command
 @client.command(name='avatar')
 async def avatar(ctx, user: typing.Optional[discord.Member]):
     """Shows a user's avatar, if username not supplied, shows your own avatar. e.g. /avatar [user]"""
+    await ctx.response.defer()
     user = user or ctx.author
     embed = discord.Embed(title=user.name + '\'s avatar')
     embed.set_image(url=user.avatar.url)
@@ -624,6 +624,7 @@ async def avatar(ctx, user: typing.Optional[discord.Member]):
 @commands.has_permissions(ban_members=True)
 async def unban(ctx, member:discord.Member):
     """Unbans a user. e.g. /unban [member]"""
+    await ctx.response.defer()
     banned_users = await ctx.guild.bans()
     member_name, member_discriminator = member.split('#')
 
@@ -640,7 +641,9 @@ from bs4 import BeautifulSoup
 
 # Urban Dictionary command
 @client.command(name='ud')
-async def ud(ctx, *, term):
+async def ud(ctx, term:str):
+    """Search the meaning of any word. e.g. /ud [term]"""
+    await ctx.response.defer()
     term = term.lower().replace(" ", "+")
     url = f"https://www.urbandictionary.com/define.php?term={term}"
     async with aiohttp.ClientSession() as session:
@@ -650,6 +653,233 @@ async def ud(ctx, *, term):
             example = soup.find('div', {'class': 'example'}).text
             await ctx.respond(f"**{term.capitalize()}**: {meaning}\n\n*Example: {example}*")
 
+import requests
+
+# Cat command
+@client.command(name='cat', help='Shows pictures of cats')
+async def cat(ctx):
+    """
+    This command retrieves a random cat picture from TheCatAPI and sends it in the chat. Usage: /cat
+    """
+    await ctx.response.defer()
+    response = requests.get('https://api.thecatapi.com/v1/images/search').json()
+    if len(response) > 0 and 'url' in response[0]:
+        cat_url = response[0]['url']
+        await ctx.respond(cat_url)
+    else:
+        await ctx.respond("Could not find any cat pictures.")
+
+# Dog command
+@client.command(name='dog', help='Shows pictures of dogs')
+async def dog(ctx):
+    """
+    This command retrieves a random dog picture from the Dog API and sends it in the chat. Usage: /dog
+    """
+    await ctx.response.defer()
+    response = requests.get('https://dog.ceo/api/breeds/image/random').json()
+    if 'message' in response:
+        dog_url = response['message']
+        await ctx.respond(dog_url)
+    else:
+        await ctx.respond("Could not find any dog pictures.")
+
+# Joke command
+@client.command(name='joke', help='Shows a random joke')
+async def joke(ctx):
+    """
+    This command retrieves a random joke from Official Joke API and sends it in the chat. Usage: /joke
+    """
+    await ctx.response.defer()
+    response = requests.get('https://official-joke-api.appspot.com/jokes/random').json()
+    if 'setup' in response and 'punchline' in response:
+        joke_setup = response['setup']
+        joke_punchline = response['punchline']
+        await ctx.respond(f"{joke_setup}\n\n{joke_punchline}")
+    else:
+        await ctx.respond("Could not find any jokes.")
+
+@client.command(name='quote')
+async def quote(ctx):
+    """Shows a random quote. e.g. /quote"""
+    await ctx.response.defer()
+    response = requests.get('https://zenquotes.io/api/random').json()[0]
+    quote = f"{response['q']} - {response['a']}"
+    await ctx.respond(quote)
+
+import google_translator
+
+@client.command(name='translate')
+async def translate(ctx, source_lang: str, target_lang: str, *, text: str):
+    """Translates a given text from one language to another. e.g. /translate en hi Hello"""
+    await ctx.response.defer()
+    try:
+        translator = google_translator()
+        translation = translator.translate(text, lang_src=source_lang, lang_tgt=target_lang)
+        await ctx.respond(f"Translated text: {translation}")
+    except ValueError as e:
+        await ctx.respond(f"Sorry, I could not translate the given text. Please check the source and target languages.")
+
+@client.command(name='numberfact')
+async def number_fact(ctx, number: int):
+    """Shows a random fact about a given number. e.g. /numberfact 42"""
+    await ctx.response.defer()
+    response = requests.get(f'http://numbersapi.com/{number}/trivia').text
+    await ctx.respond(response)
+
+import json
+from datetime import datetime
+
+@bot.slash_command(name="warn")
+@commands.has_role("Moderator")
+async def warn(ctx, member: discord.Member, reason: str):
+    """
+    Warns a member. Usage: /warn @member [reason]
+    """
+    await ctx.response.defer()
+    embed = discord.Embed(title="⚠️Warning!⚠️", description=f"You have been warned for {reason}.\nPlease follow the rules.", color=discord.Color.red())
+    embed.set_author(name=f"{ctx.author}", icon_url=ctx.author.avatar.url)
+    embed.set_footer(text="Thank you for being a part of the Delhi Public School Server.")
+    
+    try:
+        await member.send(embed=embed)
+    except discord.Forbidden:
+        await ctx.respond("Failed to send a warning message. The user may have their DMs disabled.", ephemeral=True)
+        return
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    warning = {"member_id": str(member.id), "member_name": member.display_name, "moderator_id": str(ctx.author.id), "moderator_name": ctx.author.display_name, "reason": reason, "timestamp": timestamp}
+    
+    with open("warnings.json", "r") as f:
+        warnings = json.load(f)
+    
+    if str(member.id) not in warnings:
+        warnings[str(member.id)] = []
+    
+    warnings[str(member.id)].append(warning)
+    
+    with open("warnings.json", "w") as f:
+        json.dump(warnings, f)
+    
+    await ctx.respond(f"{member.mention} has been warned.",ephemeral=True)
+    
+@bot.slash_command(name="warnings")
+async def warnings(ctx, member: discord.Member = None):
+    """Shows warnings for a member. Usage: /warnings [member]"""
+    await ctx.response.defer()
+    if not member:
+        member = ctx.author
+    with open("warnings.json", "r") as f:
+        data = json.load(f)
+    if str(member.id) not in data:
+        await ctx.respond("No warnings found for this member.")
+        return
+    warnings = data[str(member.id)]
+    embed = discord.Embed(title=f"Warnings for {member.display_name}", color=discord.Color.red())
+    for warning in warnings:
+        moderator = await bot.fetch_user(warning["moderator"])
+        embed.add_field(name=f"Warning from {moderator.display_name}", value=f"Reason: {warning['reason']} - Time: {warning['timestamp']}")
+    await ctx.send(embed=embed)
+
+@bot.slash_command(name="guild-warnings")
+@commands.has_role("Moderator")
+async def guild_warnings(ctx):
+    """Displays all warnings given in the server. Usage: /guild-warnings"""
+    await ctx.response.defer()
+    with open("warnings.json", "r") as f:
+        warnings = json.load(f)
+    if not warnings:
+        await ctx.respond("No warnings have been given in this server.", ephemeral=True)
+        return
+    embed = discord.Embed(title="Server Warnings", color=discord.Color.red())
+    for member_id, member_warnings in warnings.items():
+        member = ctx.guild.get_member(int(member_id))
+        if not member:
+            continue
+        warnings_list = "\n".join(f"• {warning['reason']}" for warning in member_warnings)
+        embed.add_field(name=member.display_name, value=warnings_list, inline=False)
+    await ctx.respond(embed=embed)
+
+@client.command(name='slowmode')
+@commands.has_permissions(manage_channels=True)
+async def slowmode(ctx, delay: int):
+    """Sets the slowmode delay for the channel. Usage: /slowmode <delay in seconds>"""
+    await ctx.response.defer()
+    if delay < 0:
+        await ctx.respond('Delay cannot be negative.',ephemeral=True)
+    elif delay > 21600:
+        await ctx.respond('Delay cannot be greater than 6 hours.',ephemeral=True)
+    else:
+        await ctx.channel.edit(slowmode_delay=delay)
+        await ctx.respond(f'Successfully set the slowmode delay of this channel to {delay} seconds.',ephemeral=True)
+
+# Quote command
+@bot.slash_command(name="quote-message")
+async def quote(ctx, message_id: int):
+    """Quotes a specific message in the current channel. e.g. /quote 123456789"""
+    try:
+        message = await ctx.channel.fetch_message(message_id)
+    except discord.NotFound:
+        await ctx.respond("Message not found!",ephemeral=True)
+        return
+
+    quote_embed = discord.Embed(
+        title="Quote",
+        description=f"{message.content}",
+        color=discord.Color.blue(),
+        timestamp=message.created_at
+    )
+    quote_embed.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
+    await ctx.respond(embed=quote_embed)
+
+import datetime, psutil
+
+# Uptime command
+@bot.slash_command(name='uptime', description='Displays the bot uptime')
+async def uptime(ctx):
+    uptime = datetime.datetime.now() - bot.boot_time
+    hours, remainder = divmod(int(uptime.total_seconds()), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    days, hours = divmod(hours, 24)
+    await ctx.respond(f"Uptime: {days}d {hours}h {minutes}m {seconds}s",ephemeral=True)
+
+
+# CPU command
+@bot.slash_command(name='cpu', description='Displays CPU usage')
+async def cpu(ctx):
+    cpu_percent = psutil.cpu_percent()
+    await ctx.respond(f'CPU Usage: {cpu_percent}%', ephemeral=True)
+
+# Memory command
+@bot.slash_command(name='memory', description='Displays memory usage')
+async def memory(ctx):
+    memory = psutil.virtual_memory()
+    total = round(memory.total/(1024*1024), 2)
+    used = round(memory.used/(1024*1024), 2)
+    percent = memory.percent
+    await ctx.respond(f'Memory Usage: {used} MB/{total} MB ({percent}%)',ephemeral=True)
+
+@client.command(name='timer')
+async def timer(ctx, seconds):
+    """Sets a timer for the given number of seconds. e.g. /timer 60"""
+    await ctx.response.defer()
+    try:
+        seconds = int(seconds)
+    except ValueError:
+        await ctx.response.send("Please provide a valid number of seconds.")
+        return
+    if seconds < 1 or seconds > 3600:
+        await ctx.response.send("Please provide a number of seconds between 1 and 3600.")
+        return
+    timer_embed = discord.Embed(
+        title="⏰ Timer", description=f"Timer set for {seconds} seconds.", color=discord.Color.blue())
+    timer_message = await ctx.response.send(embed=timer_embed)
+    while seconds > 0:
+        timer_embed.description = f"Time remaining: {seconds} seconds."
+        await timer_message.edit(embed=timer_embed)
+        await asyncio.sleep(1)
+        seconds -= 1
+        timer_embed.description = "Time's up!"
+        await timer_message.edit(embed=timer_embed)
 
 # Run the bot
 bot.run(bot_token)

@@ -1,3 +1,4 @@
+*.sh
 user_prompts.json
 __pycache__
 node_modules
@@ -6,3 +7,4 @@ package.json
 discord.log
 config.py
 users.json
+warnings.json
