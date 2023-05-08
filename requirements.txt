@@ -1,0 +1,8 @@
+flask
+openai
+py-cord
+thefuzz
+bs4
+requests
+google_translator
+psutil

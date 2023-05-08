@@ -1,7 +1,7 @@
 #!/bin/python3
 import discord
 from discord.ext import commands, tasks
-# from discord import app_commands
+from discord import option
 import sqlite3
 import json
 from config import bot_token, openai_token
@@ -20,13 +20,33 @@ handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
 
+# Set up logging
+logger = logging.getLogger('discord')
+logger.setLevel(logging.DEBUG)
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
+
 # Basic on_ready event
 @bot.event
 async def on_ready():
     await bot.sync_commands()
-    # await bot.sync_commands(guild_ids=[1071784179748048956])
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="your commands (and pretending to care 😏)."))
     print('Bot is ready')
+
+@bot.event
+async def on_command_error(ctx, exception):
+    if isinstance(exception, commands.errors.CommandNotFound):
+        await ctx.respond(f"Command `{ctx.invoked_with}` not found.", ephemeral=True)
+    elif isinstance(exception, commands.errors.MissingPermissions):
+        await ctx.respond(f"Sorry, you don't have the required permissions to run this command.", ephemeral=True)
+    elif isinstance(exception, commands.errors.MissingRequiredArgument):
+        await ctx.respond(f"Please provide all required arguments.", ephemeral=True)
+    elif isinstance(exception, commands.errors.BadArgument):
+        await ctx.respond(f"Invalid argument.", ephemeral=True)
+    else:
+        await ctx.respond(f"Sorry, something went wrong.", ephemeral=True)
+    print(f"Command `{ctx.invoked_with}` failed with the following error:\n{exception}")
 
 # Basic ping command
 @bot.slash_command(name="ping")
@@ -34,7 +54,10 @@ async def ping(ctx):
     """
     Pings the bot. Usage: /ping
     """
-    await ctx.respond(f"Pong! Latency is {bot.latency}",ephemeral=True)
+    try:
+        await ctx.respond(f"Pong! Latency is {bot.latency}",ephemeral=True)
+    except Exception as e:
+        await ctx.respond(f"Error: {e}",ephemeral=True)
 
 # Level system
 def calculate_level(messages):
@@ -42,7 +65,7 @@ def calculate_level(messages):
     while level < 100 and messages >= ((level ** 2) * 25):
         level += 1
     return level
-import json
+
 # Rank system
 def calculate_rank(level):
     if level >= 30:
@@ -54,12 +77,16 @@ def calculate_rank(level):
     else:
         return "none"
 
-import json
 
 
 @bot.event
 async def on_message(message):
     if not message.author.bot:
+        print(f"{message.author} sent a message: {message.content}")
+        # response = openai.Moderation.create(
+        #     input=message
+        # )
+        # output = response["results"][0]
         with open("users.json", "r") as fi:
             users = json.load(fi)
         # Add user to dictionary if they're not already in it
@@ -100,7 +127,6 @@ async def level(ctx,username: typing.Optional[discord.Member]):
     """
     Check anyone's level in the server. Usage: /level [user], Displays your level if user=None.
     """
-    await ctx.response.defer()
     with open("users.json", "r") as f:
         users = json.load(f)
     user = username or ctx.author
@@ -153,7 +179,6 @@ async def ban(ctx, member: discord.Member, *, reason:str):
     """
     Bans a member from the server. Usage: /ban [member]
     """
-    await ctx.response.defer()
     if member == ctx.message.author:
         await ctx.respond("You cannot ban yourself.")
         return
@@ -178,7 +203,6 @@ async def kick(ctx, member: discord.Member, *, reason:str):
     """
     Kicks a member from the server. Usage: /kick [member]
     """
-    await ctx.response.defer()
     if member == ctx.message.author:
         await ctx.respond("You cannot kick yourself.")
         return
@@ -202,7 +226,6 @@ async def purge(ctx, number: int):
     """
     Purges messages in the current channel.Usage: /purge [number]
     """
-    await ctx.response.defer()
     await ctx.channel.purge(limit=number)
     await ctx.respond(f"{number} messages have been cleared.",ephemeral=True)
     log_channel = discord.utils.get(ctx.guild.channels, name="logs")
@@ -218,7 +241,6 @@ async def addrole(ctx, member: discord.Member, *, role: discord.Role):
     """
     Adds a role from a member. Usage: /addrole [member] [role]
     """
-    await ctx.response.defer()
     await member.add_roles(role)
     await ctx.respond(f"{role} has been added to {member.mention}.",ephemeral=True)
     log_channel = discord.utils.get(ctx.guild.channels, name="logs")
@@ -235,7 +257,6 @@ async def removerole(ctx, member: discord.Member, *, role: discord.Role):
     """
     Removes a role from a member. Usage: /removerole [member] [role]
     """
-    await ctx.response.defer()
     try:
         await member.remove_roles(role)
         await ctx.respond(f"{role.name} has been removed from {member.mention}.",ephemeral=True)
@@ -248,7 +269,6 @@ async def removerole(ctx, member: discord.Member, *, role: discord.Role):
 @commands.has_role('Helper')
 async def embed(ctx, channel: discord.TextChannel, title: str, author: str, author_dp: typing.Optional[str]=None, text: typing.Optional[str]=None, img_url: typing.Optional[str]=None, thumbnail: typing.Optional[str]=None, ftext:str="Thank You!", ficon:typing.Optional[str]=None):
     """Create an embed message"""
-    await ctx.response.defer()
     commandcompleteembed = discord.Embed(
         title="Completed",
         description="Your command has been executed. The embed has been created and sent!",
@@ -280,7 +300,6 @@ async def apply_for_role(ctx, *, option_role: discord.Role):
     """
     Apply for roles. Request the admins/moderators to give you a role. Usage: /apply-for-role [role]
     """
-    await ctx.response.defer()
     if ctx.channel.name != 'ask-for-roles':
         await ctx.respond('This command can only be run in the \#ask-for-roles channel.',ephemeral=True)
         return
@@ -309,129 +328,150 @@ async def apply_for_role(ctx, *, option_role: discord.Role):
 async def msg(ctx, member: discord.Member, message: str):
     """
     Message a member as the bot. Usage: /warn [Member] [Message]
+    :param member: The member to message
+    :param message: The message to send
     """
-    await ctx.response.defer()
     try:
-        await ctx.respond("DM'd Member!",ephemeral=True)
         await member.send(content=message)
+        await ctx.respond("DM'd Member!",ephemeral=True)
     except discord.Forbidden:
         await ctx.respond("Failed to send a warning message. The user may have their DMs disabled.",ephemeral=True)
 
 import asyncio, random
+import time as atime
 
-@bot.slash_command(name="role_giveaway")
-async def role_giveaway(ctx, time: int, *, role: discord.Role):
+@bot.slash_command(name="role-giveaway")
+@commands.has_role("Admin")
+async def role_giveaway(ctx, time: int, role: discord.Role, channel: discord.TextChannel, winners: int = 1):
     """
     Starts a giveaway for a role for a specified time. Usage: /role_giveaway [Time in seconds] [role]
+    :param ctx: The context of the command
+    :param time: The time in seconds for the giveaway
+    :param role: The role to be given away
+    :param channel: The channel to send the giveaway embed in
+    :param winners: The number of winners
     """
-    await ctx.response.defer()
-    channel = bot.get_channel(1074973882211123221)  # Replace with the actual ID of the #giveaways channel
-
+    print(time, role, channel, winners)
+    # await ctx.response.defer()
     embedResponse = discord.Embed(title="Done!", description=f"Embed for the giveaway for **{role.name}** has been sent!", color=0xffd700)
-    await ctx.respond("Done!",embed=embedResponse,ephemeral=True)
-
-    total_seconds = time
-    days, remainder = divmod(total_seconds, 86400)
-    hours, remainder = divmod(remainder, 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    if days > 0:
-        time_remaining = f"{days} day{'s' if days != 1 else ''}"
-    elif hours > 0:
-        time_remaining = f"{hours} hour{'s' if hours != 1 else ''}"
-    elif minutes > 0:
-        time_remaining = f"{minutes} minute{'s' if minutes != 1 else ''}"
-    else:
-        time_remaining = f"{seconds} second{'s' if seconds != 1 else ''}"
-
+    await ctx.respond(embed=embedResponse,ephemeral=True)
+    # await ctx.response.send_message(embed=embedResponse,ephermal=True)
+    cTime=atime.time()
+    eTime=cTime+time
     # Create the embed
     embed = discord.Embed(title="🎉 Giveaway Time!", description=f"React to this message to enter the giveaway for the **{role.name}** role!", color=0xffd700)
-    embed.add_field(name="Time remaining", value=f"{time_remaining}")
+    embed.add_field(name="Time remaining", value=f"<t:{eTime}:R>")
     embed.set_footer(text="Good luck!")
+    enter_button = discord.ui.button(label="Enter Giveaway!", style=discord.ButtonStyle.green)
+    # discord.ui.View(enter_button)
+    # enter_action_row = discord.ActionRow(enter_button)
+    #bot.add_view(enter_action_row)
 
     # Send the embed and add the reaction
-    message = await channel.send(embed=embed)
+    message = await ctx.channel.send(embed=embed, view=discord.ui.View(enter_button, timeout=time))
 
-    # Adds a reaction to the giveaway message
-    await message.add_reaction('🎉')
+    # Define the check to only allow the user who initiated the command to interact with the button
+    def check(interaction: discord.Interaction):
+        return interaction.user == ctx.author
 
-    # Update the remaining time every 10 seconds
-    for remaining_time in range(time, -1, -10):
-        embed.set_field_at(index=0, name="Time remaining", value=f"{remaining_time} seconds")
-        await message.edit(embed=embed)
-        await asyncio.sleep(10)
+    # Wait for the user to click the button to enter the giveaway
+    interaction = await bot.wait_for("button_click", check=check)
 
-    # Waits for the specified time
+    # Add the user who clicked the button to the list of entries
+    entries = [interaction.user]
+
+    # Wait for the user to click the button to enter the giveaway
+    interaction = await bot.wait_for("button_click", check=check)
+
+    # Add the user who clicked the button to the list of entries
+    entries = [interaction.user]
+    interaction = await bot.wait_for("button_click", check=check, timeout=time)
+    if interaction.user in entries:
+        await interaction.response.send_message("You have already entered the giveaway!", ephemeral=True)
+    else:
+     entries.append(interaction.user)
+
     await asyncio.sleep(time)
 
-    # Retrieves all users who reacted to the message
-    message = await channel.fetch_message(message.id)
-    reaction = next(filter(lambda r: str(r.emoji) == '🎉', message.reactions), None)
-    if reaction is None:
-        await channel.send("No one reacted to the giveaway message. The giveaway is cancelled.")
-    else:
-        users = await reaction.users().flatten()
-        users = list(filter(lambda u: not u.bot, users))
-        winner = random.choice(users)
-        # Update the original embed with the winner information
-        embed.add_field(name="Winner", value=winner.mention)
-        embed.set_footer(text="Congratulations!")
-        await message.edit(embed=embed)
+    users = entries
+    #users = list(filter(lambda u: not u.bot, users))
+    winnerlist=[]
+    mentions=""
+    for i in range(winners):
+        winner=random.choice(users)
+        winnerlist.append(winner)
+        mentions+="{winner.mention}"
+        users.remove(winner)
+        winner.add_roles(role)
+    # Update the original embed with the winner information
+    embed.add_field(name="Winner", value=mentions)
+    embed.set_footer(text="Congratulations!")
+    await message.edit(embed=embed)
         
 @bot.slash_command(name="giveaway")
-async def giveaway(ctx, time: int, *, prize: str):
+async def giveaway(ctx, time: int, *, prize: str, channel: discord.TextChannel, winners: int = 1):
     """
     Starts a giveaway with a specified time and prize. Usage: /giveaway [Time in seconds] [Prize]
+    :param ctx: The context of the command
+    :param time: The time in seconds for the giveaway
+    :param prize: The prize to be given away
     """
-    await ctx.response.defer()
-    channel = bot.get_channel(1074973882211123221)
     
+    print(time, role, channel, winners)
+    # await ctx.response.defer()
     embedResponse = discord.Embed(title="Done!", description=f"Embed for the giveaway for **{prize}** has been sent!", color=0xffd700)
-    
-    await ctx.respond("Done!",embed=embedResponse,ephemeral=True)
-
-    total_seconds = time
-    days, remainder = divmod(total_seconds, 86400)
-    hours, remainder = divmod(remainder, 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    if days > 0:
-        time_remaining = f"{days} day{'s' if days != 1 else ''}"
-    elif hours > 0:
-        time_remaining = f"{hours} hour{'s' if hours != 1 else ''}"
-    elif minutes > 0:
-        time_remaining = f"{minutes} minute{'s' if minutes != 1 else ''}"
-    else:
-        time_remaining = f"{seconds} second{'s' if seconds != 1 else ''}"
-
+    await ctx.respond(embed=embedResponse,ephemeral=True)
+    # await ctx.response.send_message(embed=embedResponse,ephermal=True)
+    cTime=atime.time()
+    eTime=cTime+time
     # Create the embed
     embed = discord.Embed(title="🎉 Giveaway Time!", description=f"React to this message to enter the giveaway for **{prize}**!", color=0xffd700)
-    embed.add_field(name="Time remaining", value=f"{time_remaining}")
+    embed.add_field(name="Time remaining", value=f"<t:{eTime}:R>")
     embed.set_footer(text="Good luck!")
+    enter_button = discord.ui.Button(label="Enter Giveaway!", style=discord.ButtonStyle.green)
+    enter_action_row = discord.ActionRow(enter_button)
+    #bot.add_view(enter_action_row)
 
     # Send the embed and add the reaction
-    message = await channel.send(embed=embed)
-    await message.add_reaction('🎉')
+    message = await ctx.channel.send(embed=embed, view=discord.ui.View(enter_action_row))
 
-    # Wait for the specified time
+    # Define the check to only allow the user who initiated the command to interact with the button
+    def check(interaction: discord.Interaction):
+        return interaction.user == ctx.author
+
+    # Wait for the user to click the button to enter the giveaway
+    interaction = await bot.wait_for("button_click", check=check)
+
+    # Add the user who clicked the button to the list of entries
+    entries = [interaction.user]
+
+    # Wait for the user to click the button to enter the giveaway
+    interaction = await bot.wait_for("button_click", check=check)
+
+    # Add the user who clicked the button to the list of entries
+    entries = [interaction.user]
+    interaction = await bot.wait_for("button_click", check=check, timeout=time)
+    if interaction.user in entries:
+        await interaction.response.send_message("You have already entered the giveaway!", ephemeral=True)
+    else:
+     entries.append(interaction.user)
+
     await asyncio.sleep(time)
 
-    # Retrieve all users who reacted to the message
-    message = await channel.fetch_message(message.id)
-    reaction = next(filter(lambda r: str(r.emoji) == '🎉', message.reactions), None)
-    if reaction is None:
-        await channel.send("No one reacted to the giveaway message. The giveaway is cancelled.")
-    else:
-        users = await reaction.users().flatten()
-        users = list(filter(lambda u: not u.bot, users))
-        winner = random.choice(users)
-
-        # Update the original embed with the winner information
-        embed.add_field(name="Winner", value=winner.mention)
-        embed.set_footer(text="Congratulations {winner.mention}! You will be rewarded soon.")
-
-        # Send the updated embed to the channel
-        await message.edit(embed=embed)
+    users = entries
+    #users = list(filter(lambda u: not u.bot, users))
+    winnerlist=[]
+    mentions=""
+    for i in range(winners):
+        winner=random.choice(users)
+        winnerlist.append(winner)
+        mentions+="{winner.mention}"
+        # winner = random.choice(users)
+    # Update the original embed with the winner information
+    
+    embed.add_field(name="Winner", value=mentions)
+    embed.set_footer(text="Congratulations!")
+    await message.edit(embed=embed)
 
 import openai
 
@@ -594,12 +634,12 @@ async def serverinfo(ctx):
     channels = len(server.channels)
     members = server.member_count
     created_at = server.created_at.strftime('%Y-%m-%d %H:%M:%S')
-    region = str(server.region).capitalize()
+    #region = str(server.region).capitalize()
     text_channels = len(server.text_channels)
     voice_channels = len(server.voice_channels)
     embed = discord.Embed(title=server.name, description=server.id, color=0x00ff00)
     embed.add_field(name="Owner", value=server.owner, inline=False)
-    embed.add_field(name="Region", value=region, inline=False)
+    #embed.add_field(name="Region", value=region, inline=False)
     embed.add_field(name="Members", value=members, inline=False)
     embed.add_field(name="Created At", value=created_at, inline=False)
     embed.add_field(name="Channels", value=channels, inline=False)
@@ -727,7 +767,8 @@ async def number_fact(ctx, number: int):
     await ctx.respond(response)
 
 import json
-from datetime import datetime
+from datetime import datetime as dtime
+#from datetime import datetime
 
 @bot.slash_command(name="warn")
 @commands.has_role("Moderator")
@@ -745,8 +786,8 @@ async def warn(ctx, member: discord.Member, reason: str):
     except discord.Forbidden:
         await ctx.respond("Failed to send a warning message. The user may have their DMs disabled.", ephemeral=True)
         return
-    
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = dtime.now()
+    timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
     warning = {"member_id": str(member.id), "member_name": member.display_name, "moderator_id": str(ctx.author.id), "moderator_name": ctx.author.display_name, "reason": reason, "timestamp": timestamp}
     
     with open("warnings.json", "r") as f:
@@ -803,7 +844,6 @@ async def guild_warnings(ctx):
 @commands.has_permissions(manage_channels=True)
 async def slowmode(ctx, delay: int):
     """Sets the slowmode delay for the channel. Usage: /slowmode <delay in seconds>"""
-    await ctx.response.defer()
     if delay < 0:
         await ctx.respond('Delay cannot be negative.',ephemeral=True)
     elif delay > 21600:
@@ -813,23 +853,17 @@ async def slowmode(ctx, delay: int):
         await ctx.respond(f'Successfully set the slowmode delay of this channel to {delay} seconds.',ephemeral=True)
 
 # Quote command
-@bot.slash_command(name="quote-message")
-async def quote(ctx, message_id: int):
-    """Quotes a specific message in the current channel. e.g. /quote 123456789"""
-    try:
-        message = await ctx.channel.fetch_message(message_id)
-    except discord.NotFound:
-        await ctx.respond("Message not found!",ephemeral=True)
-        return
-
-    quote_embed = discord.Embed(
-        title="Quote",
-        description=f"{message.content}",
-        color=discord.Color.blue(),
-        timestamp=message.created_at
-    )
-    quote_embed.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-    await ctx.respond(embed=quote_embed)
+@bot.slash_command(name="quote-msg")
+async def quote_message(ctx, message_id: int):
+    """
+    Quotes a message. Usage: /quote-message <message_id>
+    """
+    message_id=int(message_id)
+    msg=await ctx.channel.fetch_message(message_id)
+    embed=discord.Embed(description=msg.content, color=discord.Color.blurple())
+    embed.set_author(name=msg.author.display_name, icon_url=msg.author.avatar.url)
+    embed.set_footer(text=f"Message ID: {msg.id}")
+    await ctx.respond(embed=embed)
 
 import datetime, psutil
 
@@ -861,25 +895,27 @@ async def memory(ctx):
 @client.command(name='timer')
 async def timer(ctx, seconds):
     """Sets a timer for the given number of seconds. e.g. /timer 60"""
-    await ctx.response.defer()
+    #await ctx.response.defer()
     try:
         seconds = int(seconds)
     except ValueError:
-        await ctx.response.send("Please provide a valid number of seconds.")
+        await ctx.response.send_message("Please provide a valid number of seconds.")
         return
     if seconds < 1 or seconds > 3600:
-        await ctx.response.send("Please provide a number of seconds between 1 and 3600.")
+        await ctx.response.send_message("Please provide a number of seconds between 1 and 3600.")
         return
     timer_embed = discord.Embed(
         title="⏰ Timer", description=f"Timer set for {seconds} seconds.", color=discord.Color.blue())
-    timer_message = await ctx.response.send(embed=timer_embed)
+    timer_message = await ctx.send(embed=timer_embed)
+    await ctx.respond("Done!",ephemeral=True)
     while seconds > 0:
         timer_embed.description = f"Time remaining: {seconds} seconds."
         await timer_message.edit(embed=timer_embed)
         await asyncio.sleep(1)
         seconds -= 1
-        timer_embed.description = "Time's up!"
         await timer_message.edit(embed=timer_embed)
+    timer_embed.description = "Time's up!"
+    await timer_message.edit(embed=timer_embed)
 
 # Run the bot
 bot.run(bot_token)
