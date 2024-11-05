@@ -600,8 +600,7 @@ async def eight_ball(ctx, question):
     if fuzz.token_set_ratio(question,"am i dumb?")>70:
         await ctx.respond("No! Well maybe, idk, I'm just a Bot.")
         return
-    ctx.respond(response)
-    
+    await ctx.respond(response)
 
 # Role info command
 @client.command(name='roleinfo')
